@@ -1,5 +1,6 @@
 import { ensureFirebaseUser } from './firebase';
 import { firebaseDb } from './firebaseDb';
+import { isAdmin } from './admin';
 import { Order, Position, RiskEvent, StrategyConfig, SystemLog } from '@/types/trading';
 
 export interface UserTenantProfile {
@@ -12,6 +13,16 @@ export interface UserTenantProfile {
   equity: number;
   derivAccountId?: string;
   derivAccountIsVirtual?: boolean;
+}
+
+export interface InitializedUserState {
+  profile: UserTenantProfile;
+  positions: Position[];
+  orders: Order[];
+  riskEvents: RiskEvent[];
+  logs: SystemLog[];
+  strategyConfig: StrategyConfig;
+  isAdmin: boolean;
 }
 
 export const PAPER_STARTING_BALANCE = 10000;
@@ -40,16 +51,10 @@ function defaultProfile(userId: string): UserTenantProfile {
 }
 
 export class MultiUserDatabase {
-  async initialize(): Promise<{
-    profile: UserTenantProfile;
-    positions: Position[];
-    orders: Order[];
-    riskEvents: RiskEvent[];
-    logs: SystemLog[];
-    strategyConfig: StrategyConfig;
-  }> {
+  async initialize(): Promise<InitializedUserState> {
     const firebaseUser = await ensureFirebaseUser();
     const userId = firebaseUser.uid;
+    const admin = await isAdmin(userId);
     const storedProfile = await firebaseDb.getUserProfile(userId);
     const baseProfile = defaultProfile(userId);
 
@@ -66,7 +71,10 @@ export class MultiUserDatabase {
     };
 
     if (!storedProfile) {
-      await firebaseDb.saveUserProfile(userId, profile as unknown as Record<string, unknown>);
+      await firebaseDb.saveUserProfile(userId, {
+        fullName: profile.fullName,
+        email: profile.email,
+      });
     }
 
     const [positions, orders, riskEvents, logs, storedStrategy] = await Promise.all([
@@ -85,7 +93,15 @@ export class MultiUserDatabase {
       await firebaseDb.saveStrategyConfig(userId, strategyConfig);
     }
 
-    return { profile, positions, orders, riskEvents, logs, strategyConfig };
+    return {
+      profile,
+      positions,
+      orders,
+      riskEvents,
+      logs,
+      strategyConfig,
+      isAdmin: admin,
+    };
   }
 
   updateProfile(profile: UserTenantProfile): Promise<void> {

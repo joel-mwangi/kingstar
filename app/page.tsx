@@ -40,6 +40,7 @@ export default function Home() {
   const [mode, setMode] = useState<TradingMode>('PAPER');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [realTradingArmed, setRealTradingArmed] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [realizedSessionPnl, setRealizedSessionPnl] = useState(0);
 
   const [currentUser, setCurrentUser] = useState<UserTenantProfile>({
@@ -78,6 +79,7 @@ export default function Home() {
         if (!active) return;
 
         setCurrentUser(state.profile);
+        setIsAdminUser(state.isAdmin);
         setPositions(state.positions.filter((item) => item.status === 'OPEN'));
         setOrders(state.orders);
         setRiskEvents(state.riskEvents);
@@ -586,6 +588,7 @@ export default function Home() {
         realTradingArmed={realTradingArmed}
         onArmRealTrading={() => setRealTradingArmed((armed) => !armed)}
         onEmergencyStop={() => setIsEmergencyModalOpen(true)}
+        isAdmin={isAdminUser}
       />
 
       <div className="max-w-7xl mx-auto px-4 pt-4">
