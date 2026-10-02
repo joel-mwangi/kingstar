@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CheckCircle, Cpu, Sliders } from 'lucide-react';
 import { StrategyConfig } from '@/types/trading';
 
@@ -10,8 +10,6 @@ interface Props {
 export function MlStrategyView({ strategyConfig, onUpdateStrategyConfig }: Props) {
   const [config, setConfig] = useState(strategyConfig);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => setConfig(strategyConfig), [strategyConfig]);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();

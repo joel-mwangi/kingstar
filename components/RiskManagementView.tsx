@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CheckCircle2, Lock, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react';
 import { RiskEvent, StrategyConfig } from '@/types/trading';
 
@@ -11,8 +11,6 @@ interface Props {
 export function RiskManagementView({ strategyConfig, riskEvents, onUpdateRiskConfig }: Props) {
   const [config, setConfig] = useState(strategyConfig);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => setConfig(strategyConfig), [strategyConfig]);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -65,6 +65,8 @@ export function DerivBrokerWidget({ onDerivTick, onAccountAuthorized }: Props) {
       setAuthorized(state.authorized);
     });
 
+    // Initial broker-account sync intentionally updates local view state after the effect starts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAccounts().catch(() => undefined);
 
     return () => {

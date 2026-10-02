@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Layers, XCircle } from 'lucide-react';
 import { Asset, Order, Position, RiskEvent, StrategyConfig, SystemLog, TradeSide } from '@/types/trading';
 import { markPaperPosition } from '@/lib/paperEngine';
@@ -29,12 +29,6 @@ export function DashboardView({
   const [tab, setTab] = useState<'positions' | 'orders' | 'logs'>('positions');
 
   const selectedAsset = assets.find((asset) => asset.symbol === selectedSymbol) || assets[0];
-
-  useEffect(() => {
-    if (!assets.some((asset) => asset.symbol === selectedSymbol)) {
-      setSelectedSymbol(assets[0]?.symbol || '');
-    }
-  }, [assets, selectedSymbol]);
 
   const quote = selectedAsset?.price || 0;
   const confidenceUp = selectedAsset?.prediction.confidenceUp || 0.5;

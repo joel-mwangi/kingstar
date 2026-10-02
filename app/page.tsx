@@ -18,7 +18,7 @@ import { derivClient } from '@/lib/derivWebSocket';
 import { updateAsset } from '@/lib/signalEngine';
 import { createPaperPosition, markPaperPosition } from '@/lib/paperEngine';
 import { validateEntry } from '@/lib/riskEngine';
-import { DEFAULT_STRATEGY, multiUserDb, UserTenantProfile } from '@/lib/multiUserDb';
+import { DEFAULT_STRATEGY, multiUserDb, PAPER_STARTING_BALANCE, UserTenantProfile } from '@/lib/multiUserDb';
 import { Navbar } from '@/components/Navbar';
 import { DashboardView } from '@/components/DashboardView';
 import { MlStrategyView } from '@/components/MlStrategyView';
@@ -59,7 +59,7 @@ export default function Home() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [strategyConfig, setStrategyConfig] = useState<StrategyConfig>(DEFAULT_STRATEGY);
   const [accountBalance, setAccountBalance] = useState(0);
-  const [accountEquity, setAccountEquity] = useState(0);
+  const [brokerEquity, setBrokerEquity] = useState(0);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
 
   const openProfit = useMemo(
@@ -67,6 +67,7 @@ export default function Home() {
     [positions]
   );
   const sessionPnl = realizedSessionPnl + openProfit;
+  const accountEquity = mode === 'PAPER' ? accountBalance + openProfit : brokerEquity;
 
   useEffect(() => {
     let active = true;
@@ -83,7 +84,7 @@ export default function Home() {
         setLogs(state.logs);
         setStrategyConfig(state.strategyConfig);
         setAccountBalance(state.profile.balance);
-        setAccountEquity(state.profile.equity);
+        setBrokerEquity(state.profile.equity);
       } catch (bootError) {
         if (active) {
           setError(
@@ -163,27 +164,23 @@ export default function Home() {
 
         if (balance !== null) {
           setAccountBalance(balance);
-          setAccountEquity(balance + livePositions.reduce((sum, position) => sum + position.profit, 0));
+          setBrokerEquity(balance + livePositions.reduce((sum, position) => sum + position.profit, 0));
         }
       } catch {
-        await addLog({
+        const log: SystemLog = {
           id: newId('log'),
           timestamp: new Date().toISOString(),
           level: 'WARN',
           source: 'BROKER',
           message: 'Broker reconciliation failed temporarily; cached positions were not replaced with guessed data.',
-        });
+        };
+        setLogs((previous) => [log, ...previous].slice(0, 300));
+        if (currentUser.userId) void multiUserDb.saveSystemLog(currentUser.userId, log);
       }
     }, 5000);
 
     return () => clearInterval(timer);
   }, [currentUser.userId, mode, ready]);
-
-  useEffect(() => {
-    if (mode === 'PAPER') {
-      setAccountEquity(accountBalance + openProfit);
-    }
-  }, [accountBalance, mode, openProfit]);
 
   async function addRiskEvent(event: RiskEvent) {
     setRiskEvents((previous) => [event, ...previous].slice(0, 200));
@@ -220,7 +217,7 @@ export default function Home() {
 
     setCurrentUser(profile);
     setAccountBalance(profile.balance);
-    setAccountEquity(profile.equity);
+    setBrokerEquity(profile.equity);
     await multiUserDb.updateProfile(profile);
   };
 
@@ -576,6 +573,10 @@ export default function Home() {
         onModeChange={(next) => {
           setMode(next);
           setRealTradingArmed(false);
+          if (next === 'PAPER') {
+            setAccountBalance(PAPER_STARTING_BALANCE);
+            setBrokerEquity(PAPER_STARTING_BALANCE + openProfit);
+          }
         }}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
