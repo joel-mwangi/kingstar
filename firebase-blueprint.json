@@ -2,22 +2,24 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "User profile and account settings",
+      "description": "Firebase-authenticated application user profile",
       "type": "object",
       "properties": {
         "userId": { "type": "string", "maxLength": 128 },
         "loginId": { "type": "string", "maxLength": 128 },
         "fullName": { "type": "string", "maxLength": 256 },
-        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "email": { "type": "string", "maxLength": 256 },
         "currency": { "type": "string", "maxLength": 10 },
         "balance": { "type": "number" },
-        "equity": { "type": "number" }
+        "equity": { "type": "number" },
+        "derivAccountId": { "type": "string", "maxLength": 128 },
+        "derivAccountIsVirtual": { "type": "boolean" }
       },
       "required": ["userId", "loginId", "currency", "balance", "equity"]
     },
     "Strategy": {
       "title": "Strategy",
-      "description": "Algorithmic trading strategy configuration",
+      "description": "Deterministic strategy and risk configuration",
       "type": "object",
       "properties": {
         "minProbability": { "type": "number" },
@@ -25,107 +27,11 @@
         "maxRiskPerTradePercent": { "type": "number" },
         "maxDailyLoss": { "type": "number" },
         "maxPositionSize": { "type": "number" },
-        "stopLossPercent": { "type": "number" },
-        "takeProfitPercent": { "type": "number" },
-        "allowShorts": { "type": "boolean" },
-        "activeModel": { "type": "string", "maxLength": 64 }
+        "defaultDuration": { "type": "number" },
+        "defaultDurationUnit": { "type": "string", "enum": ["s", "m", "h"] },
+        "activeModel": { "type": "string" }
       },
-      "required": ["minProbability", "minExpectedReturn", "maxPositionSize", "activeModel"]
-    },
-    "Position": {
-      "title": "Position",
-      "description": "Active trading position",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string", "maxLength": 128 },
-        "assetId": { "type": "string", "maxLength": 128 },
-        "symbol": { "type": "string", "maxLength": 32 },
-        "quantity": { "type": "number" },
-        "entryPrice": { "type": "number" },
-        "currentPrice": { "type": "number" },
-        "stopLoss": { "type": "number" },
-        "takeProfit": { "type": "number" },
-        "unrealizedPnl": { "type": "number" },
-        "unrealizedPnlPercent": { "type": "number" },
-        "status": { "type": "string", "enum": ["OPEN", "CLOSED"] },
-        "openedAt": { "type": "string", "maxLength": 64 }
-      },
-      "required": ["id", "symbol", "quantity", "entryPrice", "status"]
-    },
-    "Order": {
-      "title": "Order",
-      "description": "Executed or submitted broker order",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string", "maxLength": 128 },
-        "brokerOrderId": { "type": "string", "maxLength": 128 },
-        "assetId": { "type": "string", "maxLength": 128 },
-        "symbol": { "type": "string", "maxLength": 32 },
-        "side": { "type": "string", "enum": ["BUY", "SELL"] },
-        "quantity": { "type": "number" },
-        "orderType": { "type": "string", "enum": ["MARKET", "LIMIT"] },
-        "requestedPrice": { "type": "number" },
-        "submittedAt": { "type": "string", "maxLength": 64 },
-        "status": { "type": "string", "enum": ["SUBMITTED", "ACCEPTED", "FILLED", "REJECTED", "CANCELLED"] },
-        "filledPrice": { "type": "number" },
-        "filledQuantity": { "type": "number" }
-      },
-      "required": ["id", "symbol", "side", "quantity", "status"]
-    },
-    "RiskEvent": {
-      "title": "RiskEvent",
-      "description": "Risk management approval or veto event",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string", "maxLength": 128 },
-        "timestamp": { "type": "string", "maxLength": 64 },
-        "symbol": { "type": "string", "maxLength": 32 },
-        "actionRequested": { "type": "string", "maxLength": 256 },
-        "status": { "type": "string", "enum": ["APPROVED", "REJECTED"] },
-        "reason": { "type": "string", "maxLength": 512 },
-        "accountEquity": { "type": "number" },
-        "riskLimitApplied": { "type": "string", "maxLength": 128 }
-      },
-      "required": ["id", "symbol", "status", "reason"]
-    },
-    "SystemLog": {
-      "title": "SystemLog",
-      "description": "System diagnostic log",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string", "maxLength": 128 },
-        "timestamp": { "type": "string", "maxLength": 64 },
-        "level": { "type": "string", "enum": ["INFO", "WARN", "SUCCESS", "ERROR", "RISK"] },
-        "source": { "type": "string", "maxLength": 64 },
-        "message": { "type": "string", "maxLength": 512 }
-      },
-      "required": ["id", "timestamp", "level", "source", "message"]
-    }
-  },
-  "firestore": {
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "User profile document"
-    },
-    "/strategies/{userId}": {
-      "schema": "Strategy",
-      "description": "User trading strategy configuration"
-    },
-    "/users/{userId}/positions/{positionId}": {
-      "schema": "Position",
-      "description": "User open positions"
-    },
-    "/users/{userId}/orders/{orderId}": {
-      "schema": "Order",
-      "description": "User submitted orders"
-    },
-    "/users/{userId}/risk_events/{eventId}": {
-      "schema": "RiskEvent",
-      "description": "User risk management audit log"
-    },
-    "/users/{userId}/system_logs/{logId}": {
-      "schema": "SystemLog",
-      "description": "User diagnostic system logs"
+      "required": ["minProbability", "minExpectedReturn", "maxRiskPerTradePercent", "maxDailyLoss", "maxPositionSize", "defaultDuration", "defaultDurationUnit"]
     }
   }
 }

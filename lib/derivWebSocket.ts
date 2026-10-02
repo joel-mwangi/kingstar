@@ -1,9 +1,10 @@
-/**
- * Deriv WebSocket & API Client
- * Handles real-time market ticks, authorization, and trade execution.
- * Supports public market data streaming (wss://api.derivws.com/trading/v1/options/ws/public),
- * demo, and real OTP-authenticated channels.
- */
+export interface DerivAccount {
+  acct: string;
+  currency: string;
+  account_type: string;
+  balance: number;
+  is_virtual: number;
+}
 
 export interface DerivTick {
   symbol: string;
@@ -11,116 +12,284 @@ export interface DerivTick {
   time: number;
 }
 
-export interface DerivAccount {
-  acct: string;
-  currency: string;
-  is_virtual: number;
-  token: string;
-  balance?: number;
+export interface DerivPortfolioContract {
+  contract_id: number | string;
+  contract_type: string;
+  underlying_symbol: string;
+  buy_price?: number | string;
+  bid_price?: number | string;
+  payout?: number | string;
+  profit?: number | string;
+  date_start?: number | string;
+  date_expiry?: number | string;
 }
+
+export interface DerivProposal {
+  id?: string;
+  ask_price?: number | string;
+  payout?: number | string;
+  spot?: number | string;
+}
+
+type PendingRequest = {
+  resolve: (value: any) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
 
 export class DerivWebSocketClient {
   private ws: WebSocket | null = null;
-  private appId = '34yEbiGrjbggKPYwNs9kA';
+  private requestId = 0;
+  private pending = new Map<number, PendingRequest>();
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private publicConnection = false;
+  private subscriptions = new Set<string>();
+
   public isConnected = false;
   public isAuthorized = false;
-  private authListeners: ((auth: any) => void)[] = [];
-  private tickListeners: ((tick: DerivTick) => void)[] = [];
 
-  public connect(onOpen?: () => void, customUrl?: string) {
-    if (this.ws) {
-      try {
-        this.ws.close();
-      } catch (e) {}
+  private tickListeners: Array<(tick: DerivTick) => void> = [];
+  private statusListeners: Array<(state: { connected: boolean; authorized: boolean }) => void> = [];
+
+  connectPublic(): void {
+    this.open('wss://api.derivws.com/trading/v1/options/ws/public', true);
+  }
+
+  connectAuthenticated(wsUrl: string): void {
+    this.open(wsUrl, false);
+  }
+
+  disconnect(): void {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Deriv WebSocket disconnected.'));
     }
+    this.pending.clear();
 
-    const wsUrl = customUrl || `wss://ws.derivws.com/websockets/v3?app_id=${this.appId}`;
-    this.ws = new WebSocket(wsUrl);
+    this.ws?.close();
+    this.ws = null;
+    this.isConnected = false;
+    this.isAuthorized = false;
+    this.notifyStatus();
+  }
 
-    this.ws.onopen = () => {
+  private open(url: string, publicConnection: boolean): void {
+    this.disconnect();
+    this.publicConnection = publicConnection;
+    const ws = new WebSocket(url);
+    this.ws = ws;
+
+    ws.onopen = () => {
       this.isConnected = true;
-      if (onOpen) onOpen();
-      
-      const token = localStorage.getItem('deriv_active_token');
-      if (token && !customUrl) {
-        this.authorize(token);
+      this.isAuthorized = !publicConnection;
+      this.notifyStatus();
+
+      for (const symbol of this.subscriptions) {
+        try {
+          this.send({ ticks: symbol, subscribe: 1 });
+        } catch {
+          // Connection will be retried if this is the public channel.
+        }
       }
     };
 
-    this.ws.onmessage = (event) => {
+    ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.msg_type === 'authorize') {
-          if (data.authorize) {
-            this.isAuthorized = true;
-            localStorage.setItem('deriv_active_acct', data.authorize.loginid);
-            this.authListeners.forEach(fn => fn(data.authorize));
+        const reqId = typeof data.req_id === 'number' ? data.req_id : undefined;
+
+        if (data.error && reqId && this.pending.has(reqId)) {
+          const pending = this.pending.get(reqId)!;
+          clearTimeout(pending.timer);
+          this.pending.delete(reqId);
+          pending.reject(new Error(data.error.message || 'Deriv API error'));
+          return;
+        }
+
+        if (data.msg_type === 'tick' && data.tick) {
+          const quote = Number(data.tick.quote);
+          if (Number.isFinite(quote)) {
+            this.tickListeners.forEach((listener) =>
+              listener({
+                symbol: String(data.tick.symbol),
+                quote,
+                time: Number(data.tick.epoch || Date.now() / 1000),
+              })
+            );
           }
         }
-        if (data.msg_type === 'tick' && data.tick) {
-          const tick: DerivTick = {
-            symbol: data.tick.symbol,
-            quote: data.tick.quote,
-            time: data.tick.epoch
-          };
-          this.tickListeners.forEach(fn => fn(tick));
+
+        if (reqId && this.pending.has(reqId)) {
+          const pending = this.pending.get(reqId)!;
+          clearTimeout(pending.timer);
+          this.pending.delete(reqId);
+          pending.resolve(data);
         }
-      } catch (e) {}
+      } catch {
+        // Ignore malformed provider messages.
+      }
     };
 
-    this.ws.onclose = () => {
+    ws.onclose = () => {
       this.isConnected = false;
       this.isAuthorized = false;
+      this.notifyStatus();
+
+      if (this.publicConnection && !this.reconnectTimer) {
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.open('wss://api.derivws.com/trading/v1/options/ws/public', true);
+        }, 1500);
+      }
     };
 
-    this.ws.onerror = () => {
+    ws.onerror = () => {
       this.isConnected = false;
+      this.notifyStatus();
     };
   }
 
-  public connectPublic(onOpen?: () => void) {
-    this.connect(onOpen, 'wss://api.derivws.com/trading/v1/options/ws/public');
+  private send(payload: Record<string, unknown>): number {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('Deriv WebSocket is not connected.');
+    }
+    const reqId = ++this.requestId;
+    this.ws.send(JSON.stringify({ ...payload, req_id: reqId }));
+    return reqId;
   }
 
-  public connectWithOtpUrl(otpUrl: string, onOpen?: () => void) {
-    this.connect(onOpen, otpUrl);
+  request<T = any>(payload: Record<string, unknown>, timeoutMs = 12000): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      let reqId: number;
+      try {
+        reqId = this.send(payload);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error('Deriv WebSocket is not connected.'));
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        this.pending.delete(reqId);
+        reject(new Error('Deriv request timed out.'));
+      }, timeoutMs);
+
+      this.pending.set(reqId, { resolve, reject, timer });
+    });
   }
 
-  public authorize(token: string) {
-    localStorage.setItem('deriv_active_token', token);
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ authorize: token }));
+  subscribeTicks(symbol: string): void {
+    this.subscriptions.add(symbol);
+    if (this.isConnected) {
+      try {
+        this.send({ ticks: symbol, subscribe: 1 });
+      } catch {
+        // Subscription will be restored after reconnect.
+      }
     }
   }
 
-  public subscribeTicks(symbol: string) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+  async getTickHistory(symbol: string, count: number, granularity = 3600): Promise<Array<{ time: number; close: number }>> {
+    let remaining = Math.min(Math.max(1, count), 5000);
+    let end = 'latest';
+    const collected = new Map<number, number>();
+
+    while (remaining > 0) {
+      const chunk = Math.min(1000, remaining);
+      const response = await this.request<any>({
+        ticks_history: symbol,
+        count: chunk,
+        end,
+        style: 'candles',
+        granularity,
+        subscribe: 0,
+      });
+      const candles = Array.isArray(response?.candles) ? response.candles : [];
+      if (!candles.length) break;
+
+      for (const candle of candles) {
+        const time = Number(candle.epoch);
+        const close = Number(candle.close);
+        if (Number.isFinite(time) && Number.isFinite(close)) collected.set(time, close);
+      }
+
+      const oldest = candles.reduce(
+        (min: number, candle: any) => Math.min(min, Number(candle.epoch)),
+        Number.POSITIVE_INFINITY
+      );
+
+      if (!Number.isFinite(oldest) || candles.length < chunk) break;
+      end = String(Math.max(0, oldest - 1));
+      remaining -= candles.length;
     }
+
+    return [...collected.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([time, close]) => ({ time, close }));
   }
 
-  public logout() {
-    localStorage.removeItem('deriv_active_token');
-    localStorage.removeItem('deriv_active_acct');
-    this.isAuthorized = false;
-    if (this.ws) {
-      this.ws.send(JSON.stringify({ logout: 1 }));
-    }
-    window.location.reload();
+  async getPortfolio(): Promise<DerivPortfolioContract[]> {
+    const response = await this.request<any>({ portfolio: 1 });
+    return Array.isArray(response?.portfolio?.contracts) ? response.portfolio.contracts : [];
   }
 
-  public onAuth(fn: (auth: any) => void) {
-    this.authListeners.push(fn);
+  async getBalance(): Promise<number | null> {
+    const response = await this.request<any>({ balance: 1, subscribe: 0 });
+    const value = Number(response?.balance?.balance);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  async getProposal(input: {
+    symbol: string;
+    contractType: 'CALL' | 'PUT';
+    currency: string;
+    amount: number;
+    duration: number;
+    durationUnit: 's' | 'm' | 'h';
+  }): Promise<DerivProposal> {
+    const response = await this.request<any>({
+      proposal: 1,
+      amount: input.amount,
+      basis: 'stake',
+      contract_type: input.contractType,
+      currency: input.currency,
+      duration: input.duration,
+      duration_unit: input.durationUnit,
+      underlying_symbol: input.symbol,
+      subscribe: 0,
+    });
+    return response?.proposal || {};
+  }
+
+  async buyProposal(proposalId: string, price: number): Promise<any> {
+    const response = await this.request<any>({ buy: proposalId, price });
+    return response?.buy;
+  }
+
+  async sellContract(contractId: number, price = 0): Promise<any> {
+    const response = await this.request<any>({ sell: contractId, price });
+    return response?.sell;
+  }
+
+  onTick(listener: (tick: DerivTick) => void): () => void {
+    this.tickListeners.push(listener);
     return () => {
-      this.authListeners = this.authListeners.filter(f => f !== fn);
+      this.tickListeners = this.tickListeners.filter((item) => item !== listener);
     };
   }
 
-  public onTick(fn: (tick: DerivTick) => void) {
-    this.tickListeners.push(fn);
+  onStatus(listener: (state: { connected: boolean; authorized: boolean }) => void): () => void {
+    this.statusListeners.push(listener);
     return () => {
-      this.tickListeners = this.tickListeners.filter(f => f !== fn);
+      this.statusListeners = this.statusListeners.filter((item) => item !== listener);
     };
+  }
+
+  private notifyStatus(): void {
+    const state = { connected: this.isConnected, authorized: this.isAuthorized };
+    this.statusListeners.forEach((listener) => listener(state));
   }
 }
 

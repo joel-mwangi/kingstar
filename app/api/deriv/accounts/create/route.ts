@@ -1,77 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const appIdHeader = req.headers.get('deriv-app-id');
+const APP_ID = process.env.NEXT_PUBLIC_DERIV_CLIENT_ID || '34yEbiGrjbggKPYwNs9kA';
+const DERIV_URL = 'https://api.derivws.com/trading/v1/options/accounts';
 
-  if (!authHeader) {
-    return NextResponse.json({
-      errors: [
-        {
-          status: 401,
-          code: 'Unauthorized',
-          message: 'Invalid or missing authentication credentials'
-        }
-      ],
-      meta: {
-        endpoint: '/accounts',
-        method: 'POST',
-        timing: 12
-      }
-    }, { status: 401 });
+export async function POST(req: NextRequest) {
+  const token = req.cookies.get('deriv_access_token')?.value;
+  const authType = req.cookies.get('deriv_auth_type')?.value;
+
+  if (!token) {
+    return NextResponse.json({ error: 'Not authenticated with Deriv.' }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => null);
+  if (!body?.currency || !body?.group || !body?.account_type) {
+    return NextResponse.json(
+      { error: 'currency, group, and account_type are required.' },
+      { status: 400 }
+    );
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: 'Bearer ' + token,
+    'Content-Type': 'application/json',
+  };
+
+  if (authType === 'pat') {
+    headers['Deriv-App-ID'] = APP_ID;
   }
 
   try {
-    const body = await req.json();
-
-    if (!body.currency || !body.group || !body.account_type) {
-      return NextResponse.json({
-        errors: [
-          {
-            status: 400,
-            code: 'FieldIsRequired',
-            message: 'currency, group, and account_type fields are required'
-          }
-        ],
-        meta: {
-          endpoint: '/accounts',
-          method: 'POST',
-          timing: 23
-        }
-      }, { status: 400 });
-    }
-
-    const upstreamHeaders: Record<string, string> = {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    };
-
-    if (appIdHeader) {
-      upstreamHeaders['Deriv-App-ID'] = appIdHeader;
-    }
-
-    const response = await fetch('https://api.derivws.com/trading/v1/options/accounts', {
+    const response = await fetch(DERIV_URL, {
       method: 'POST',
-      headers: upstreamHeaders,
-      body: JSON.stringify(body)
+      headers,
+      body: JSON.stringify(body),
+      cache: 'no-store',
     });
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch (err: any) {
-    return NextResponse.json({
-      errors: [
-        {
-          status: 504,
-          code: 'GatewayTimeout',
-          message: err.message || 'Upstream service timeout'
-        }
-      ],
-      meta: {
-        endpoint: '/accounts',
-        method: 'POST',
-        timing: 67
-      }
-    }, { status: 504 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Deriv account creation failed.' },
+      { status: 502 }
+    );
   }
 }

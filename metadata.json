@@ -1,8 +1,12 @@
 {
-  "name": "Algorun AI - Algorithmic Trading Bot System",
-  "description": "Advanced automated algorithmic trading platform featuring ML market prediction engine, risk management controls, backtesting studio, and real-time paper trading simulation.",
+  "name": "Kingstar Trading Terminal",
+  "description": "Deriv-connected options research and trading terminal with deterministic risk controls, historical research, secure broker authentication and advisory AI.",
   "requestFramePermissions": [],
   "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+    "DERIV_OPTIONS_TRADING",
+    "DERIV_MARKET_DATA",
+    "DETERMINISTIC_RISK_ENGINE",
+    "HISTORICAL_RESEARCH_BACKTEST",
+    "ADVISORY_GEMINI_ANALYST"
   ]
 }

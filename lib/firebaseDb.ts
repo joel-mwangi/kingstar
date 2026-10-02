@@ -1,131 +1,72 @@
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+} from 'firebase/firestore';
 import { db } from './firebase';
-import { doc, getDoc, setDoc, collection, getDocs, addDoc, updateDoc } from 'firebase/firestore';
-import { Position, Order, RiskEvent, SystemLog, StrategyConfig } from '@/types/trading';
-import { UserTenantProfile } from './multiUserDb';
+import { Order, Position, RiskEvent, StrategyConfig, SystemLog } from '@/types/trading';
 
 export class FirebaseDatabaseService {
-  public async saveUserProfile(profile: UserTenantProfile): Promise<void> {
-    try {
-      const ref = doc(db, 'users', profile.userId);
-      await setDoc(ref, profile, { merge: true });
-    } catch (err) {
-      console.error('Firebase saveUserProfile error:', err);
-    }
+  async getUserProfile(userId: string): Promise<Record<string, unknown> | null> {
+    const snap = await getDoc(doc(db, 'users', userId));
+    return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
   }
 
-  public async getUserProfile(userId: string): Promise<UserTenantProfile | null> {
-    try {
-      const ref = doc(db, 'users', userId);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        return snap.data() as UserTenantProfile;
-      }
-    } catch (err) {
-      console.error('Firebase getUserProfile error:', err);
-    }
-    return null;
+  async saveUserProfile(userId: string, profile: Record<string, unknown>): Promise<void> {
+    await setDoc(doc(db, 'users', userId), profile, { merge: true });
   }
 
-  public async saveStrategyConfig(userId: string, config: StrategyConfig): Promise<void> {
-    try {
-      const ref = doc(db, 'strategies', userId);
-      await setDoc(ref, config, { merge: true });
-    } catch (err) {
-      console.error('Firebase saveStrategyConfig error:', err);
-    }
+  async getStrategyConfig(userId: string): Promise<StrategyConfig | null> {
+    const snap = await getDoc(doc(db, 'strategies', userId));
+    return snap.exists() ? (snap.data() as StrategyConfig) : null;
   }
 
-  public async getStrategyConfig(userId: string): Promise<StrategyConfig | null> {
-    try {
-      const ref = doc(db, 'strategies', userId);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        return snap.data() as StrategyConfig;
-      }
-    } catch (err) {
-      console.error('Firebase getStrategyConfig error:', err);
-    }
-    return null;
+  async saveStrategyConfig(userId: string, config: StrategyConfig): Promise<void> {
+    await setDoc(doc(db, 'strategies', userId), config, { merge: true });
   }
 
-  public async savePosition(userId: string, position: Position): Promise<void> {
-    try {
-      const ref = doc(db, 'users', userId, 'positions', position.id);
-      await setDoc(ref, position, { merge: true });
-    } catch (err) {
-      console.error('Firebase savePosition error:', err);
-    }
+  private async getCollection<T>(userId: string, collectionName: string): Promise<T[]> {
+    const snap = await getDocs(collection(db, 'users', userId, collectionName));
+    return snap.docs.map((item) => item.data() as T);
   }
 
-  public async getPositions(userId: string): Promise<Position[]> {
-    try {
-      const colRef = collection(db, 'users', userId, 'positions');
-      const snap = await getDocs(colRef);
-      return snap.docs.map(d => d.data() as Position);
-    } catch (err) {
-      console.error('Firebase getPositions error:', err);
-      return [];
-    }
+  async getPositions(userId: string): Promise<Position[]> {
+    return this.getCollection<Position>(userId, 'positions');
   }
 
-  public async saveOrder(userId: string, order: Order): Promise<void> {
-    try {
-      const ref = doc(db, 'users', userId, 'orders', order.id);
-      await setDoc(ref, order, { merge: true });
-    } catch (err) {
-      console.error('Firebase saveOrder error:', err);
-    }
+  async getOrders(userId: string): Promise<Order[]> {
+    return this.getCollection<Order>(userId, 'orders');
   }
 
-  public async getOrders(userId: string): Promise<Order[]> {
-    try {
-      const colRef = collection(db, 'users', userId, 'orders');
-      const snap = await getDocs(colRef);
-      return snap.docs.map(d => d.data() as Order);
-    } catch (err) {
-      console.error('Firebase getOrders error:', err);
-      return [];
-    }
+  async getRiskEvents(userId: string): Promise<RiskEvent[]> {
+    return this.getCollection<RiskEvent>(userId, 'risk_events');
   }
 
-  public async saveRiskEvent(userId: string, event: RiskEvent): Promise<void> {
-    try {
-      const ref = doc(db, 'users', userId, 'risk_events', event.id);
-      await setDoc(ref, event, { merge: true });
-    } catch (err) {
-      console.error('Firebase saveRiskEvent error:', err);
-    }
+  async getSystemLogs(userId: string): Promise<SystemLog[]> {
+    return this.getCollection<SystemLog>(userId, 'system_logs');
   }
 
-  public async getRiskEvents(userId: string): Promise<RiskEvent[]> {
-    try {
-      const colRef = collection(db, 'users', userId, 'risk_events');
-      const snap = await getDocs(colRef);
-      return snap.docs.map(d => d.data() as RiskEvent);
-    } catch (err) {
-      console.error('Firebase getRiskEvents error:', err);
-      return [];
-    }
+  async savePosition(userId: string, position: Position): Promise<void> {
+    await setDoc(doc(db, 'users', userId, 'positions', position.id), position, { merge: true });
   }
 
-  public async saveSystemLog(userId: string, log: SystemLog): Promise<void> {
-    try {
-      const ref = doc(db, 'users', userId, 'system_logs', log.id);
-      await setDoc(ref, log, { merge: true });
-    } catch (err) {
-      console.error('Firebase saveSystemLog error:', err);
-    }
+  async deletePosition(userId: string, positionId: string): Promise<void> {
+    await deleteDoc(doc(db, 'users', userId, 'positions', positionId));
   }
 
-  public async getSystemLogs(userId: string): Promise<SystemLog[]> {
-    try {
-      const colRef = collection(db, 'users', userId, 'system_logs');
-      const snap = await getDocs(colRef);
-      return snap.docs.map(d => d.data() as SystemLog);
-    } catch (err) {
-      console.error('Firebase getSystemLogs error:', err);
-      return [];
-    }
+  async saveOrder(userId: string, order: Order): Promise<void> {
+    await setDoc(doc(db, 'users', userId, 'orders', order.id), order, { merge: true });
+  }
+
+  async saveRiskEvent(userId: string, event: RiskEvent): Promise<void> {
+    await setDoc(doc(db, 'users', userId, 'risk_events', event.id), event, { merge: true });
+  }
+
+  async saveSystemLog(userId: string, log: SystemLog): Promise<void> {
+    await setDoc(doc(db, 'users', userId, 'system_logs', log.id), log, { merge: true });
   }
 }
 

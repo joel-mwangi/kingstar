@@ -1,167 +1,83 @@
-import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, CheckCircle2, XCircle, Sliders, Lock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CheckCircle2, Lock, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react';
 import { RiskEvent, StrategyConfig } from '@/types/trading';
 
-interface RiskManagementViewProps {
+interface Props {
   strategyConfig: StrategyConfig;
   riskEvents: RiskEvent[];
-  onUpdateRiskConfig: (newConfig: StrategyConfig) => void;
+  onUpdateRiskConfig: (value: StrategyConfig) => Promise<void>;
 }
 
-export function RiskManagementView({
-  strategyConfig,
-  riskEvents,
-  onUpdateRiskConfig
-}: RiskManagementViewProps) {
-  const [config, setConfig] = useState<StrategyConfig>(strategyConfig);
+export function RiskManagementView({ strategyConfig, riskEvents, onUpdateRiskConfig }: Props) {
+  const [config, setConfig] = useState(strategyConfig);
   const [saved, setSaved] = useState(false);
 
-  const handleChange = (key: keyof StrategyConfig, value: any) => {
-    setConfig({ ...config, [key]: value });
-  };
+  useEffect(() => setConfig(strategyConfig), [strategyConfig]);
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    onUpdateRiskConfig(config);
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    await onUpdateRiskConfig(config);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setTimeout(() => setSaved(false), 1800);
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      
-      {/* Header */}
-      <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-emerald-400" /> Risk Management & Guardrail Engine
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Independent risk service that vetoes trades and enforces account capital preservation rules.
-          </p>
-        </div>
-        {saved && (
-          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
-            <CheckCircle2 className="h-4 w-4" /> Risk Rules Updated
-          </span>
-        )}
-      </div>
+    <div className="space-y-6">
+      <section className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6">
+        <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-emerald-400" /> Risk Management</h2>
+        <p className="text-xs text-slate-400 mt-1">Every entry is validated before it can reach the broker. Pause and emergency-stop states block new entries.</p>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Risk Configuration Form */}
-        <form onSubmit={handleSave} className="lg:col-span-1 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-          <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-            <Lock className="h-4 w-4 text-emerald-400" /> Account Safeguards
-          </h3>
+        <form onSubmit={save} className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2"><Lock className="h-4 w-4 text-emerald-400" /> Guardrails</h3>
 
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Max Risk Per Trade (%)</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  max="5.0"
-                  value={config.maxRiskPerTradePercent}
-                  onChange={(e) => handleChange('maxRiskPerTradePercent', parseFloat(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-                <span className="text-xs text-slate-400 font-mono">%</span>
-              </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">Maximum percentage of total equity risked on a single trade.</span>
-            </div>
+          <label className="block text-xs text-slate-300">
+            Max risk per trade (%)
+            <input type="number" min="0.1" max="5" step="0.1" value={config.maxRiskPerTradePercent} onChange={(e) => setConfig({ ...config, maxRiskPerTradePercent: Number(e.target.value) })} className="mt-2 w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100" />
+          </label>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Max Position Size ($ USD)</label>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-400 font-mono">$</span>
-                <input
-                  type="number"
-                  step="100"
-                  min="500"
-                  max="50000"
-                  value={config.maxPositionSize}
-                  onChange={(e) => handleChange('maxPositionSize', parseFloat(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">Hard capital cap per single asset position.</span>
-            </div>
+          <label className="block text-xs text-slate-300">
+            Hard max stake ($)
+            <input type="number" min="1" max="100000" step="1" value={config.maxPositionSize} onChange={(e) => setConfig({ ...config, maxPositionSize: Number(e.target.value) })} className="mt-2 w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100" />
+          </label>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Max Daily Loss ($ USD)</label>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-400 font-mono">$</span>
-                <input
-                  type="number"
-                  step="50"
-                  min="100"
-                  max="5000"
-                  value={config.maxDailyLoss}
-                  onChange={(e) => handleChange('maxDailyLoss', parseFloat(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">Triggers emergency pause if daily realized/unrealized loss exceeds this amount.</span>
-            </div>
-          </div>
+          <label className="block text-xs text-slate-300">
+            Max daily loss ($)
+            <input type="number" min="1" max="100000" step="1" value={config.maxDailyLoss} onChange={(e) => setConfig({ ...config, maxDailyLoss: Number(e.target.value) })} className="mt-2 w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100" />
+          </label>
 
-          <button
-            type="submit"
-            className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/20 transition-all"
-          >
-            Update Risk Guardrails
-          </button>
+          <button className="w-full px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold">Save guardrails</button>
+          {saved && <p className="text-xs text-emerald-400">Risk configuration saved.</p>}
         </form>
 
-        {/* Risk Event Audit Log */}
-        <div className="lg:col-span-2 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-emerald-400" /> Risk Validation Audit Log
-            </h3>
-            <span className="text-xs text-slate-400 font-mono">Real-time gatekeeper checks</span>
+        <div className="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-400" /> Risk audit</h3>
+            <span className="text-xs text-slate-500">{riskEvents.length} recorded</span>
           </div>
 
-          <div className="space-y-3">
-            {riskEvents.map((evt) => {
-              const isApproved = evt.status === 'APPROVED';
+          <div className="space-y-3 max-h-[28rem] overflow-y-auto">
+            {riskEvents.length === 0 && <p className="text-xs text-slate-500 py-10 text-center">No risk events recorded yet.</p>}
+            {riskEvents.map((event) => {
+              const approved = event.status === 'APPROVED';
               return (
-                <div key={evt.id} className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-100">{evt.symbol}</span>
-                      <span className="text-slate-400 font-mono">{evt.actionRequested}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500 font-mono">{evt.timestamp}</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${
-                        isApproved ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                      }`}>
-                        {isApproved ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        {evt.status}
-                      </span>
-                    </div>
+                <div key={event.id} className="rounded-xl bg-slate-950/70 border border-slate-800 p-4">
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <div><b className="text-slate-100">{event.symbol}</b> <span className="text-slate-400">{event.actionRequested}</span></div>
+                    <span className={approved ? 'text-emerald-400' : 'text-rose-400'}>
+                      {approved ? <CheckCircle2 className="inline h-3.5 w-3.5 mr-1" /> : <XCircle className="inline h-3.5 w-3.5 mr-1" />}
+                      {event.status}
+                    </span>
                   </div>
-
-                  <p className="text-xs text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/60 font-mono">
-                    {evt.reason}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <span>Account Equity: <strong className="text-slate-300">${evt.accountEquity.toLocaleString()}</strong></span>
-                    <span>Guardrail: <strong className="text-cyan-400">{evt.riskLimitApplied}</strong></span>
-                  </div>
+                  <p className="mt-2 text-xs text-slate-300">{event.reason}</p>
+                  <p className="mt-2 text-[11px] text-slate-500">{event.timestamp} • {event.riskLimitApplied} • Equity {'$' + event.accountEquity.toFixed(2)}</p>
                 </div>
               );
             })}
           </div>
         </div>
-
       </div>
-
     </div>
   );
 }

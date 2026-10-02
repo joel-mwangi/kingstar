@@ -1,75 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const appIdHeader = req.headers.get('deriv-app-id');
+const APP_ID = process.env.NEXT_PUBLIC_DERIV_CLIENT_ID || '34yEbiGrjbggKPYwNs9kA';
+const DERIV_URL = 'https://api.derivws.com/trading/v1/options/accounts';
 
-  if (!authHeader) {
-    return NextResponse.json({
-      errors: [
-        {
-          status: 401,
-          code: 'Unauthorized',
-          message: 'Invalid or missing authentication credentials'
-        }
-      ],
-      meta: {
-        endpoint: '/accounts',
-        method: 'GET',
-        timing: 15
-      }
-    }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const token = req.cookies.get('deriv_access_token')?.value;
+  const authType = req.cookies.get('deriv_auth_type')?.value;
+
+  if (!token) {
+    return NextResponse.json({ error: 'Not authenticated with Deriv.' }, { status: 401 });
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: 'Bearer ' + token,
+  };
+
+  if (authType === 'pat') {
+    headers['Deriv-App-ID'] = APP_ID;
   }
 
   try {
-    const upstreamHeaders: Record<string, string> = {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    };
-
-    if (appIdHeader) {
-      upstreamHeaders['Deriv-App-ID'] = appIdHeader;
-    }
-
-    const response = await fetch('https://api.derivws.com/trading/v1/options/accounts', {
-      method: 'GET',
-      headers: upstreamHeaders
+    const response = await fetch(DERIV_URL, {
+      headers,
+      cache: 'no-store',
     });
+    const data = await response.json();
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      return NextResponse.json({
-        errors: [
-          {
-            status: response.status,
-            code: 'UpstreamError',
-            message: errorData || 'Failed to fetch options accounts from Deriv'
-          }
-        ],
-        meta: {
-          endpoint: '/accounts',
-          method: 'GET',
-          timing: 45
-        }
-      }, { status: response.status });
+    if (response.status === 401) {
+      const result = NextResponse.json(data, { status: 401 });
+      result.cookies.set('deriv_access_token', '', { httpOnly: true, expires: new Date(0), path: '/' });
+      result.cookies.set('deriv_auth_type', '', { httpOnly: true, expires: new Date(0), path: '/' });
+      return result;
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
-  } catch (err: any) {
-    return NextResponse.json({
-      errors: [
-        {
-          status: 504,
-          code: 'GatewayTimeout',
-          message: err.message || 'Upstream service timeout'
-        }
-      ],
-      meta: {
-        endpoint: '/accounts',
-        method: 'GET',
-        timing: 100
-      }
-    }, { status: 504 });
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Deriv account lookup failed.' },
+      { status: 502 }
+    );
   }
 }

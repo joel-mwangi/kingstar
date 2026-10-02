@@ -1,57 +1,69 @@
 export type BotStatus = 'RUNNING' | 'PAUSED' | 'EMERGENCY_STOP' | 'SHADOW';
-export type TradingMode = 'PAPER' | 'SHADOW' | 'BACKTEST' | 'SANDBOX';
+export type TradingMode = 'PAPER' | 'DEMO' | 'REAL' | 'BACKTEST';
+export type TradeSide = 'CALL' | 'PUT';
+export type AssetSignal = 'CALL' | 'PUT' | 'HOLD';
+
+export interface DirectionalSignal {
+  confidenceUp: number;
+  confidenceDown: number;
+  expectedReturn: number;
+  signal: AssetSignal;
+  source: 'HEURISTIC';
+}
 
 export interface Asset {
   id: string;
   symbol: string;
   name: string;
+  currency: string;
   price: number;
   change24h: number;
   volume: number;
   bid: number;
   ask: number;
-  rsi: number;
-  macd: number;
-  sma50: number;
-  ema20: number;
+  rsi: number | null;
+  macd: number | null;
+  sma50: number | null;
+  ema20: number | null;
   volatility: number;
-  prediction: {
-    probabilityUp: number;
-    probabilityDown: number;
-    expectedReturn: number;
-    signal: 'BUY' | 'SELL' | 'HOLD';
-    modelVersion: string;
-  };
+  quoteTimestamp?: number;
+  recentPrices: number[];
+  prediction: DirectionalSignal;
 }
 
 export interface Position {
   id: string;
+  contractId?: number;
   assetId: string;
   symbol: string;
-  quantity: number;
+  contractType: TradeSide;
+  stake: number;
   entryPrice: number;
-  currentPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  unrealizedPnl: number;
-  unrealizedPnlPercent: number;
+  currentValue: number;
+  payout: number;
+  profit: number;
+  profitPercent: number;
   status: 'OPEN' | 'CLOSED';
   openedAt: string;
+  updatedAt: string;
+  source: 'PAPER' | 'DERIV';
 }
 
 export interface Order {
   id: string;
-  brokerOrderId: string;
+  brokerOrderId?: string;
+  contractId?: number;
   assetId: string;
   symbol: string;
-  side: 'BUY' | 'SELL';
-  quantity: number;
-  orderType: 'MARKET' | 'LIMIT';
-  requestedPrice: number;
+  side: TradeSide | 'CLOSE';
+  stake: number;
+  orderType: 'MARKET';
+  requestedPrice?: number;
   submittedAt: string;
-  status: 'SUBMITTED' | 'ACCEPTED' | 'FILLED' | 'REJECTED' | 'CANCELLED';
+  status: 'SUBMITTED' | 'ACCEPTED' | 'FILLED' | 'REJECTED' | 'CANCELLED' | 'CLOSED';
   filledPrice?: number;
   filledQuantity?: number;
+  error?: string;
 }
 
 export interface RiskEvent {
@@ -69,7 +81,7 @@ export interface SystemLog {
   id: string;
   timestamp: string;
   level: 'INFO' | 'WARN' | 'SUCCESS' | 'ERROR' | 'RISK';
-  source: 'MARKET_ENGINE' | 'ML_MODEL' | 'STRATEGY' | 'RISK_MANAGER' | 'ORDER_ENGINE' | 'DATABASE';
+  source: 'MARKET_ENGINE' | 'AI_ANALYST' | 'STRATEGY' | 'RISK_MANAGER' | 'ORDER_ENGINE' | 'DATABASE' | 'BROKER';
   message: string;
 }
 
@@ -79,8 +91,7 @@ export interface StrategyConfig {
   maxRiskPerTradePercent: number;
   maxDailyLoss: number;
   maxPositionSize: number;
-  stopLossPercent: number;
-  takeProfitPercent: number;
-  allowShorts: boolean;
-  activeModel: 'XGBoost_v2.4' | 'LSTM_Attention' | 'Transformer_Fin' | 'Ensemble_Voting';
+  defaultDuration: number;
+  defaultDurationUnit: 's' | 'm' | 'h';
+  activeModel: 'Heuristic Momentum';
 }
