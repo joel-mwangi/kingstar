@@ -37,8 +37,8 @@ export function MlStrategyView({ strategyConfig, onUpdateStrategyConfig }: Props
           </label>
 
           <label className="block text-xs text-slate-300">
-            Minimum expected directional return: <b>{config.minExpectedReturn.toFixed(2) + '%'}</b>
-            <input type="range" min="-1" max="2" step="0.05" value={config.minExpectedReturn} onChange={(e) => setConfig({ ...config, minExpectedReturn: Number(e.target.value) })} className="w-full mt-2" />
+            Minimum expected directional return: <b>{Math.max(0, config.minExpectedReturn).toFixed(2) + '%'}</b>
+            <input type="range" min="0" max="2" step="0.05" value={Math.max(0, config.minExpectedReturn)} onChange={(e) => setConfig({ ...config, minExpectedReturn: Number(e.target.value) })} className="w-full mt-2" />
           </label>
 
           <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-4 text-xs text-slate-400">

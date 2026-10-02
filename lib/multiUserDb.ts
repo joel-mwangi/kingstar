@@ -51,7 +51,19 @@ export class MultiUserDatabase {
     const firebaseUser = await ensureFirebaseUser();
     const userId = firebaseUser.uid;
     const storedProfile = await firebaseDb.getUserProfile(userId);
-    const profile = { ...defaultProfile(userId), ...(storedProfile || {}), userId } as UserTenantProfile;
+    const baseProfile = defaultProfile(userId);
+
+    const profile: UserTenantProfile = {
+      ...baseProfile,
+      fullName:
+        typeof storedProfile?.fullName === 'string'
+          ? storedProfile.fullName.slice(0, 256)
+          : baseProfile.fullName,
+      email:
+        typeof storedProfile?.email === 'string'
+          ? storedProfile.email.slice(0, 256)
+          : baseProfile.email,
+    };
 
     if (!storedProfile) {
       await firebaseDb.saveUserProfile(userId, profile as unknown as Record<string, unknown>);
@@ -77,7 +89,10 @@ export class MultiUserDatabase {
   }
 
   updateProfile(profile: UserTenantProfile): Promise<void> {
-    return firebaseDb.saveUserProfile(profile.userId, profile as unknown as Record<string, unknown>);
+    return firebaseDb.saveUserProfile(profile.userId, {
+      fullName: profile.fullName,
+      email: profile.email,
+    });
   }
 
   saveStrategyConfig(userId: string, config: StrategyConfig): Promise<void> {

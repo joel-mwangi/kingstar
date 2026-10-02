@@ -42,9 +42,7 @@ export function Navbar(props: Props) {
             <h1 className="font-bold text-lg tracking-tight text-slate-100">KINGSTAR <span className="text-xs text-cyan-400 font-mono">TRADING TERMINAL</span></h1>
             <p className="text-xs text-slate-400">Deriv Options • deterministic risk • advisory AI</p>
           </div>
-          <span className={'ml-auto xl:ml-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ' + statusClass}>
-            <span className="h-2 w-2 rounded-full bg-current" /> {props.status}
-          </span>
+          <span className={'ml-auto xl:ml-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ' + statusClass}><span className="h-2 w-2 rounded-full bg-current" /> {props.status}</span>
         </div>
 
         <div className="hidden lg:flex items-center gap-5 bg-slate-800/60 px-4 py-2 rounded-xl border border-slate-700/50 text-xs">
@@ -52,15 +50,12 @@ export function Navbar(props: Props) {
           <div className="h-6 w-px bg-slate-700" />
           <div><span className="text-slate-400 block">Equity</span><span className="font-mono text-slate-100">{'$' + props.accountEquity.toFixed(2)}</span></div>
           <div className="h-6 w-px bg-slate-700" />
-          <div><span className="text-slate-400 block">Daily P/L</span><span className={'font-mono ' + (props.dailyPnl >= 0 ? 'text-emerald-400' : 'text-rose-400')}>{(props.dailyPnl >= 0 ? '+' : '') + '$' + props.dailyPnl.toFixed(2)}</span></div>
+          <div><span className="text-slate-400 block">Session P/L</span><span className={'font-mono ' + (props.dailyPnl >= 0 ? 'text-emerald-400' : 'text-rose-400')}>{(props.dailyPnl >= 0 ? '+' : '') + '$' + props.dailyPnl.toFixed(2)}</span></div>
         </div>
 
         <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
           <select value={props.mode} onChange={(event) => props.onModeChange(event.target.value as TradingMode)} className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
-            <option value="PAPER">Paper</option>
-            <option value="DEMO">Deriv Demo</option>
-            <option value="REAL">Deriv Real</option>
-            <option value="BACKTEST">Backtest</option>
+            <option value="PAPER">Paper</option><option value="DEMO">Deriv Demo</option><option value="REAL">Deriv Real</option><option value="BACKTEST">Backtest</option>
           </select>
 
           {props.mode === 'REAL' && (

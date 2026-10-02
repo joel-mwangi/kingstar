@@ -14,16 +14,18 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       match /orders/{orderId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
       }
       match /risk_events/{eventId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
       }
       match /system_logs/{logId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
       }
     }
-
     match /strategies/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
