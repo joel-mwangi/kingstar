@@ -16,7 +16,12 @@ export class FirebaseDatabaseService {
   }
 
   async saveUserProfile(userId: string, profile: Record<string, unknown>): Promise<void> {
-    await setDoc(doc(db, 'users', userId), profile, { merge: true });
+    const safeProfile = {
+      userId,
+      fullName: typeof profile.fullName === 'string' ? profile.fullName.slice(0, 256) : 'Deriv Trader',
+      email: typeof profile.email === 'string' ? profile.email.slice(0, 256) : '',
+    };
+    await setDoc(doc(db, 'users', userId), safeProfile, { merge: true });
   }
 
   async getStrategyConfig(userId: string): Promise<StrategyConfig | null> {

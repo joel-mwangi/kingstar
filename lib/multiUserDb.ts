@@ -14,6 +14,8 @@ export interface UserTenantProfile {
   derivAccountIsVirtual?: boolean;
 }
 
+export const PAPER_STARTING_BALANCE = 10000;
+
 export const DEFAULT_STRATEGY: StrategyConfig = {
   minProbability: 0.65,
   minExpectedReturn: 0.10,
@@ -32,8 +34,8 @@ function defaultProfile(userId: string): UserTenantProfile {
     fullName: 'Deriv Trader',
     email: '',
     currency: 'USD',
-    balance: 0,
-    equity: 0,
+    balance: PAPER_STARTING_BALANCE,
+    equity: PAPER_STARTING_BALANCE,
   };
 }
 

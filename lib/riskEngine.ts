@@ -40,7 +40,7 @@ export function validateEntry(
     }
 
     if (context.mode === 'DEMO' && context.accountIsVirtual !== true) {
-      return { allowed: false, reason: 'Demo mode requires a Deriv virtual/demo account.' };
+      return { allowed: false, reason: 'Demo mode requires a confirmed Deriv virtual account.' };
     }
 
     if (context.mode === 'REAL' && context.accountIsVirtual !== false) {
@@ -56,10 +56,16 @@ export function validateEntry(
     return { allowed: false, reason: 'Daily/session loss limit reached.' };
   }
 
-  const percentageCap = context.equity > 0
-    ? (context.equity * context.strategy.maxRiskPerTradePercent) / 100
-    : 0;
-  const riskCap = Math.max(1, Math.min(context.strategy.maxPositionSize, percentageCap));
+  if (!Number.isFinite(context.equity) || context.equity <= 0) {
+    return { allowed: false, reason: 'No positive account equity is available.' };
+  }
+
+  const percentageCap = (context.equity * context.strategy.maxRiskPerTradePercent) / 100;
+  const riskCap = Math.min(context.strategy.maxPositionSize, percentageCap);
+
+  if (!Number.isFinite(riskCap) || riskCap <= 0) {
+    return { allowed: false, reason: 'Risk limits produce a zero allowable stake.' };
+  }
 
   if (stake > riskCap) {
     return {
@@ -87,15 +93,16 @@ export function validateEntry(
   const expected = side === 'CALL'
     ? asset.prediction.expectedReturn
     : -asset.prediction.expectedReturn;
+  const minimumExpectedReturn = Math.max(0, context.strategy.minExpectedReturn);
 
-  if (expected < context.strategy.minExpectedReturn) {
+  if (expected < minimumExpectedReturn) {
     return {
       allowed: false,
       reason:
         'Expected directional return ' +
         expected.toFixed(2) +
         '% is below the ' +
-        context.strategy.minExpectedReturn.toFixed(2) +
+        minimumExpectedReturn.toFixed(2) +
         '% threshold.',
     };
   }
