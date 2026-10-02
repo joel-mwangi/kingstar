@@ -1,0 +1,8 @@
+{
+  "name": "Algorun AI - Algorithmic Trading Bot System",
+  "description": "Advanced automated algorithmic trading platform featuring ML market prediction engine, risk management controls, backtesting studio, and real-time paper trading simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
